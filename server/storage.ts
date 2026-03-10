@@ -1,38 +1,42 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { db } from "./db";
+import { insights, type InsertInsight, type UpdateInsightRequest, type Insight } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  getInsights(): Promise<Insight[]>;
+  getInsight(id: number): Promise<Insight | undefined>;
+  createInsight(insight: InsertInsight): Promise<Insight>;
+  updateInsight(id: number, updates: UpdateInsightRequest): Promise<Insight>;
+  deleteInsight(id: number): Promise<void>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
+export class DatabaseStorage implements IStorage {
+  async getInsights(): Promise<Insight[]> {
+    return await db.select().from(insights);
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getInsight(id: number): Promise<Insight | undefined> {
+    const [insight] = await db.select().from(insights).where(eq(insights.id, id));
+    return insight;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async createInsight(insight: InsertInsight): Promise<Insight> {
+    const [created] = await db.insert(insights).values(insight).returning();
+    return created;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async updateInsight(id: number, updates: UpdateInsightRequest): Promise<Insight> {
+    const [updated] = await db
+      .update(insights)
+      .set(updates)
+      .where(eq(insights.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteInsight(id: number): Promise<void> {
+    await db.delete(insights).where(eq(insights.id, id));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
