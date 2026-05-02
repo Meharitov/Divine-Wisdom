@@ -1,9 +1,24 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import OpenAI from "openai";
+
+declare module "express-session" {
+  interface SessionData {
+    authenticated: boolean;
+    username: string;
+  }
+}
+
+const ADMIN_USERNAME = "Meharitov";
+const ADMIN_PASSWORD = "i12kissu";
+
+function requireAuth(req: Request, res: Response, next: () => void) {
+  if (req.session?.authenticated) return next();
+  res.status(401).json({ message: "Unauthorized" });
+}
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -14,8 +29,32 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  
-  app.get(api.insights.list.path, async (req, res) => {
+
+  // Auth routes (no requireAuth needed here)
+  app.post("/api/auth/login", (req, res) => {
+    const { username, password } = req.body;
+    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+      req.session.authenticated = true;
+      req.session.username = username;
+      return res.json({ username });
+    }
+    res.status(401).json({ message: "Invalid username or password." });
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy(() => {
+      res.json({ ok: true });
+    });
+  });
+
+  app.get("/api/auth/me", (req, res) => {
+    if (req.session?.authenticated) {
+      return res.json({ username: req.session.username });
+    }
+    res.status(401).json({ message: "Not authenticated" });
+  });
+
+  app.get(api.insights.list.path, requireAuth, async (req, res) => {
     try {
       const insights = await storage.getInsights();
       res.json(insights);
@@ -25,7 +64,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post(api.insights.generate.path, async (req, res) => {
+  app.post(api.insights.generate.path, requireAuth, async (req, res) => {
     try {
       const { topic } = api.insights.generate.input.parse(req.body);
       
@@ -71,7 +110,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.insights.update.path, async (req, res) => {
+  app.put(api.insights.update.path, requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -98,7 +137,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.insights.delete.path, async (req, res) => {
+  app.delete(api.insights.delete.path, requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
