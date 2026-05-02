@@ -36,18 +36,23 @@ function AuthGate() {
     <>
       {/* Logout bar */}
       <div className="fixed top-0 right-0 z-50 p-4">
-        <div className="flex items-center gap-3 bg-card/80 backdrop-blur border border-border/50 rounded-full px-4 py-2 shadow-sm">
+        <div className="flex items-center gap-3 bg-card/90 backdrop-blur border border-border/60 rounded-full px-4 py-2 shadow-sm">
           <span className="text-sm font-display text-foreground/70">
             {user.username}
           </span>
+          <div className="w-px h-4 bg-border" />
           <button
             onClick={() => logoutMutation.mutate()}
             disabled={logoutMutation.isPending}
             data-testid="button-logout"
-            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-destructive transition-colors"
-            title="Sign out"
+            className="flex items-center gap-1.5 text-sm font-body text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
           >
-            <LogOut className="w-4 h-4" />
+            {logoutMutation.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <LogOut className="w-4 h-4" />
+            )}
+            <span>Sign Out</span>
           </button>
         </div>
       </div>
