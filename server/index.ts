@@ -6,6 +6,11 @@ import { createServer } from "http";
 
 const app = express();
 const httpServer = createServer(app);
+const sessionSecret = process.env.SESSION_SECRET;
+
+if (!sessionSecret) {
+  throw new Error("SESSION_SECRET must be set.");
+}
 
 declare module "http" {
   interface IncomingMessage {
@@ -25,7 +30,7 @@ app.use(express.urlencoded({ extended: false }));
 
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || "divine-wisdom-secret-key",
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     cookie: {

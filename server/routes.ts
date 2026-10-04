@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import OpenAI from "openai";
+import { parseRouteId } from "./utils/route-params";
 
 declare module "express-session" {
   interface SessionData {
@@ -13,7 +14,7 @@ declare module "express-session" {
 }
 
 const ADMIN_USERNAME = "Meharitov";
-const ADMIN_PASSWORD = "i12kissu";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
 function requireAuth(req: Request, res: Response, next: () => void) {
   if (req.session?.authenticated) return next();
@@ -33,6 +34,9 @@ export async function registerRoutes(
   // Auth routes (no requireAuth needed here)
   app.post("/api/auth/login", (req, res) => {
     const { username, password } = req.body;
+    if (!ADMIN_PASSWORD) {
+      return res.status(503).json({ message: "Login is not configured." });
+    }
     if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
       req.session.authenticated = true;
       req.session.username = username;
@@ -102,8 +106,8 @@ export async function registerRoutes(
       console.error("Error generating insight:", err);
       if (err instanceof z.ZodError) {
         return res.status(400).json({
-          message: err.errors[0]?.message || "Validation error",
-          field: err.errors[0]?.path.join('.'),
+          message: err.issues[0]?.message || "Validation error",
+          field: err.issues[0]?.path.join('.'),
         });
       }
       res.status(500).json({ message: "Failed to generate insight" });
@@ -112,7 +116,7 @@ export async function registerRoutes(
 
   app.put(api.insights.update.path, requireAuth, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseRouteId(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid ID" });
       }
@@ -129,8 +133,8 @@ export async function registerRoutes(
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({
-          message: err.errors[0]?.message || "Validation error",
-          field: err.errors[0]?.path.join('.'),
+          message: err.issues[0]?.message || "Validation error",
+          field: err.issues[0]?.path.join('.'),
         });
       }
       res.status(500).json({ message: "Failed to update insight" });
@@ -139,7 +143,7 @@ export async function registerRoutes(
 
   app.delete(api.insights.delete.path, requireAuth, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseRouteId(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid ID" });
       }

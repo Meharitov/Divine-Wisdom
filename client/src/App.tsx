@@ -1,13 +1,23 @@
+import { lazy, Suspense } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
-import Home from "@/pages/home";
-import LoginPage from "@/pages/login";
 import { useAuth, useLogout } from "@/hooks/use-auth";
 import { Loader2, LogOut } from "lucide-react";
+
+const Home = lazy(() => import("@/pages/home"));
+const LoginPage = lazy(() => import("@/pages/login"));
+
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <Loader2 className="w-8 h-8 animate-spin text-primary/50" />
+    </div>
+  );
+}
 
 function AuthGate() {
   const { user, isLoading } = useAuth();
@@ -15,20 +25,18 @@ function AuthGate() {
   const qc = useQueryClient();
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary/50" />
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (!user) {
     return (
-      <LoginPage
-        onSuccess={() => {
-          qc.invalidateQueries({ queryKey: ["/api/auth/me"] });
-        }}
-      />
+      <Suspense fallback={<LoadingScreen />}>
+        <LoginPage
+          onSuccess={() => {
+            qc.invalidateQueries({ queryKey: ["/api/auth/me"] });
+          }}
+        />
+      </Suspense>
     );
   }
 
@@ -58,7 +66,14 @@ function AuthGate() {
       </div>
 
       <Switch>
-        <Route path="/" component={Home} />
+        <Route
+          path="/"
+          component={() => (
+            <Suspense fallback={<LoadingScreen />}>
+              <Home />
+            </Suspense>
+          )}
+        />
         <Route component={NotFound} />
       </Switch>
     </>
