@@ -1,0 +1,1 @@
+- [Dependency upgrade ordering](dependency-upgrade-ordering.md) — Stage React before Drizzle ORM updates; npm can trip on Drizzle's optional native peer graph when everything moves at once.
